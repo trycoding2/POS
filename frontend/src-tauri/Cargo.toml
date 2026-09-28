@@ -1,0 +1,29 @@
+[package]
+name = "karyana-manager"
+version = "1.0.0"
+description = "Karyana / General Store Management desktop app (Tauri 2 shell around the local FastAPI backend + React POS UI)"
+authors = ["Karyana Manager"]
+edition = "2021"
+
+# NOTE: This environment has no Rust toolchain, so `cargo`/`tauri build` cannot run
+# here. On a build machine with Rust installed:
+#   npm install -D @tauri-apps/cli && npx tauri build
+# produces Windows (.exe / NSIS) and Linux (.deb/.rpm/.AppImage) installers.
+
+[lib]
+name = "karyana_manager_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
