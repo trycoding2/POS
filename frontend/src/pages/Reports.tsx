@@ -1,10 +1,19 @@
 // Reports (spec #29): sales, profit, inventory, receivables/payables, cash, payments, products + CSV export.
 import React, { useEffect, useState } from 'react';
-import { api, deviceId } from '../api/client';
+import { api } from '../api/client';
 import { useStore } from '../store';
 
 const TABS = ['sales', 'profit', 'inventory', 'receivables', 'payables', 'cash', 'payments', 'sales-by-product'] as const;
 type Tab = typeof TABS[number];
+
+function csvKind(tab: Tab): string {
+  if (tab === 'sales') return 'sales';
+  if (tab === 'profit') return 'profit';
+  if (tab === 'sales-by-product') return 'products';
+  if (tab === 'receivables') return 'receivables';
+  if (tab === 'payables') return 'payables';
+  return 'sales';
+}
 
 export default function Reports() {
   const st = useStore();
@@ -15,20 +24,24 @@ export default function Reports() {
   const [loading, setLoading] = useState(false);
   const load = () => {
     setLoading(true);
-    api.get<any>(`/api/reports/${tab}?from=${from}&to=${to}&device_id=${deviceId}`)
+    api.get<any>(`/api/reports/${tab}?start=${from}&end=${to}`)
       .then(setData).catch(e => st.toast(e.message, 'bad')).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [tab]); // eslint-disable-line
-  const rows: any[] = Array.isArray(data) ? data : (data?.rows ?? data?.items ?? data?.days ?? data?.products ?? []);
+    const rows: any[] = Array.isArray(data) ? data
+    : tab === 'receivables' ? [...(data?.customers ?? []), ...(data?.overdue_dastis ?? [])]
+    : tab === 'payables' ? (data?.suppliers ?? [])
+    : tab === 'inventory' ? (data?.products ?? [])
+    : (data?.rows ?? data?.items ?? data?.days ?? data?.products ?? []);
   const cols = rows.length ? Object.keys(rows[0]) : [];
-  const moneyCols = cols.filter(c => /amount|total|revenue|profit|cost|discount|balance|paid|due|in|out/i.test(c) && c !== 'id');
+    const moneyCols = cols.filter(c => /amount|total|revenue|profit|cost|discount|balance|paid|due|value|margin|payable|outstanding/i.test(c) && c !== 'id');
   return <div>
     <div className="row spread" style={{ marginBottom: 12 }}>
       <h2 style={{ margin: 0 }}>Reports</h2>
-      <a className="primary" style={{ textDecoration: 'none' }} href={`${(import.meta.env.VITE_API_URL as string) || ''}/api/reports/export.csv?report=${tab}&from=${from}&to=${to}&device_id=${deviceId}&token=${localStorage.getItem('km_token') || ''}`} onClick={async e => {
+      <a className="primary" style={{ textDecoration: 'none' }} href={`${(import.meta.env.VITE_API_URL as string) || ''}/api/reports/export.csv?kind=${csvKind(tab)}&start=${from}&end=${to}`} onClick={async e => {
         e.preventDefault();
         try {
-          const blob = await api.get<Blob>(`/api/reports/export.csv?report=${tab}&from=${from}&to=${to}&device_id=${deviceId}`);
+          const blob = await api.get<Blob>(`/api/reports/export.csv?kind=${csvKind(tab)}&start=${from}&end=${to}`);
           const url = URL.createObjectURL(blob as any); const a = document.createElement('a');
           a.href = url; a.download = `${tab}-report.csv`; a.click(); URL.revokeObjectURL(url);
         } catch (err: any) { st.toast(err.message, 'bad'); }

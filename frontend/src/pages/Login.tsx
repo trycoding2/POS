@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { api, setToken, UserInfo, Settings } from '../api/client';
-import { useStore, deviceId } from '../store';
+import { api, setToken, type UserInfo, type Settings } from '../api/client';
+import { useStore } from '../store';
+import { deviceId } from '../api/client';
 import { Field, Modal } from '../components/ui';
 
 export default function Login() {

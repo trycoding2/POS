@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, AuditRow } from '../api/client';
+import { api, type AuditRow } from '../api/client';
 import { useStore } from '../store';
 import { Kpi } from '../components/ui';
 

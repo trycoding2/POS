@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { api, setToken, deviceId, Settings, UserInfo } from './api/client';
+import { api, setToken, deviceId, type Settings, type UserInfo } from './api/client';
 
-interface Toast { id: number; msg: string; kind: 'ok' | 'bad' | 'info' }
+interface Toast { id: number; msg: string; kind: 'ok' | 'bad' | 'info' | 'warn' }
 interface Store {
   user: UserInfo | null; settings: Settings; ready: boolean; online: boolean;
   can: (perm: string) => boolean;
@@ -85,7 +85,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     <Ctx.Provider value={value}>
       {children}
       <div className="toast">{toasts.map(t => (
-        <div key={t.id} className="t" style={{ background: t.kind === 'ok' ? 'var(--ok)' : t.kind === 'bad' ? 'var(--danger)' : '#1565c0' }}>{t.msg}</div>
+        <div key={t.id} className="t" style={{ background: t.kind === 'ok' ? 'var(--ok)' : t.kind === 'bad' ? 'var(--danger)' : t.kind === 'warn' ? '#e65100' : '#1565c0' }}>{t.msg}</div>
       ))}</div>
     </Ctx.Provider>
   );

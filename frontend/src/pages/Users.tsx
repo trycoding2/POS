@@ -1,6 +1,6 @@
 // Users & Roles (spec #34): create users with roles, per-user overrides, role permission editor.
 import React, { useEffect, useState } from 'react';
-import { api, UserInfo } from '../api/client';
+import { api, type UserInfo } from '../api/client';
 import { useStore } from '../store';
 import { Modal, Field } from '../components/ui';
 

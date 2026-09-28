@@ -1,77 +1,118 @@
-// Settings (spec #32/#45): shop profile, WhatsApp templates, backup/restore, reset data.
+// Owner Control Center (spec #38/#56): every setting is backed by PUT /api/settings and
+// actually drives behavior server-side (spec #71). No cosmetic settings here.
 import React, { useEffect, useState } from 'react';
-import { api, deviceId } from '../api/client';
+import { api } from '../api/client';
 import { useStore } from '../store';
+import { Field } from '../components/ui';
+
+const GROUPS: { name: string; icon: string; keys: [string, string, string?][] }[] = [
+  { name: 'Store', icon: '🏪', keys: [
+    ['store.name', 'Store name'], ['store.address', 'Address'], ['store.phone', 'Phone'],
+    ['store.whatsapp', 'WhatsApp number'], ['store.email', 'Email']] },
+  { name: 'Currency', icon: '💰', keys: [
+    ['currency.symbol', 'Symbol (e.g. Rs.)'], ['currency.code', 'Code (e.g. PKR)'],
+    ['currency.decimals', 'Decimal places (0-2)'], ['currency.thousand_sep', 'Thousand separator'],
+    ['currency.decimal_sep', 'Decimal separator'], ['currency.position', 'Position (prefix/suffix)']] },
+  { name: 'Appearance & Language', icon: '🎨', keys: [
+    ['ui.theme', 'Theme (light/dark)'], ['ui.font_size', 'Font size'], ['ui.language', 'Language (en/ur)'],
+    ['timezone', 'Time zone'], ['date_format', 'Date format']] },
+  { name: 'POS', icon: '🛒', keys: [
+    ['pos.barcode_auto_add', 'Barcode auto-add to cart (true/false)'],
+    ['pos.manual_add_ask_qty', 'Ask quantity on manual add'],
+    ['pos.show_category_buttons', 'Show category buttons'],
+    ['pos.default_customer_walkin', 'Default customer = Walk-in'],
+    ['pos.allow_negative_stock', 'Allow negative stock (NOT recommended)']] },
+  { name: 'Payments', icon: '💵', keys: [
+    ['payments.cash', 'Cash enabled'], ['payments.bank', 'Bank enabled'],
+    ['payments.wallet_easypaisa', 'Easypaisa enabled'], ['payments.wallet_jazzcash', 'JazzCash enabled'],
+    ['payments.credit_khata', 'Khata credit enabled'], ['payments.dasti', 'Dasti enabled'],
+    ['payments.split', 'Split payments enabled']] },
+  { name: 'Khata & Dasti', icon: '📒', keys: [
+    ['khata.default_credit_limit', 'Default credit limit (0 = no limit)'],
+    ['khata.reminder_days', 'Reminder after N days'],
+    ['dasti.default_due_days', 'Dasti default due days'],
+    ['dasti.require_phone', 'Dasti requires phone (true/false)']] },
+  { name: 'Stock', icon: '📦', keys: [
+    ['stock.low_stock_default', 'Default low-stock threshold'],
+    ['stock.expiring_soon_days', 'Expiring-soon window (days)']] },
+  { name: 'Tax', icon: '🧾', keys: [['tax.enabled', 'Tax enabled (true/false)'], ['tax.percent', 'Tax %']] },
+  { name: 'Receipts', icon: '🖨️', keys: [
+    ['receipt.header', 'Receipt header message'], ['receipt.footer', 'Receipt footer message'],
+    ['receipt.paper_size', 'Paper size (80mm/58mm/A4)'], ['receipt.printer', 'Printer name'],
+    ['receipt.show_customer', 'Show customer'], ['receipt.show_cashier', 'Show cashier'],
+    ['receipt.show_discount', 'Show discount'], ['receipt.show_payment_method', 'Show payment method'],
+    ['receipt.show_balance', 'Show balance']] },
+  { name: 'Notifications / WhatsApp', icon: '💬', keys: [
+    ['whatsapp.enabled', 'WhatsApp engine enabled (needs API token below)'],
+    ['whatsapp.auto_sale_receipt', 'Auto-send sale receipts'],
+    ['whatsapp.auto_khata_reminder', 'Auto khata reminders'],
+    ['whatsapp.auto_dasti_reminder', 'Auto dasti reminders'],
+    ['notify.daily_owner_report', 'Daily owner summary'],
+    ['whatsapp.api_url', 'WhatsApp Cloud API URL (integration boundary)'],
+    ['whatsapp.api_token', 'WhatsApp API token (stored locally, never sent to third parties)'],
+    ['whatsapp.phone_number_id', 'WhatsApp phone number id']] },
+  { name: 'Backup & Sync', icon: '☁️', keys: [
+    ['backup.auto_local', 'Automatic local backup hourly'],
+    ['backup.keep_count', 'Backups to keep'],
+    ['sync.enabled', 'Cloud sync enabled'], ['sync.server_url', 'Sync server URL'],
+    ['sync.api_key', 'Sync API key']] },
+  { name: 'Approvals (0 = off)', icon: '✅', keys: [
+    ['approval.discount_percent', 'Discount % needing approval'],
+    ['approval.void_sale', 'Sale void needs approval (true/false)'],
+    ['approval.stock_adjust_qty', 'Stock adjustment qty needing approval'],
+    ['approval.expense_amount', 'Expense amount needing approval'],
+    ['approval.supplier_payment_amount', 'Supplier payment amount needing approval'],
+    ['approval.price_change', 'Price change needs approval (true/false)']] },
+  { name: 'Invoice numbering', icon: '🔢', keys: [
+    ['ref.format', 'Ref format ({prefix}-{yyyymmdd}-{seq:06d})'],
+    ['ref.SALE.prefix', 'Sale prefix'], ['ref.PUR.prefix', 'Purchase prefix'],
+    ['ref.PAY.prefix', 'Payment prefix'], ['ref.RET.prefix', 'Return prefix'],
+    ['ref.EXP.prefix', 'Expense prefix'], ['ref.DST.prefix', 'Dasti prefix'],
+    ['ref.ADJ.prefix', 'Adjustment prefix'], ['ref.ORD.prefix', 'Order prefix'],
+    ['ref.WDR.prefix', 'Withdrawal prefix']] },
+];
 
 export default function Settings() {
   const st = useStore();
-  const [settings, setSettings] = useState<Record<string, string>>({ ...st.settings });
-  const [busy, setBusy] = useState('');
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setSettings(p => ({ ...p, [k]: e.target.value }));
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [saved, setSaved] = useState(false);
+  const [group, setGroup] = useState('Store');
+  useEffect(() => { setDraft({ ...st.settings }); }, [st.settings]);
+
+  const g = GROUPS.find(x => x.name === group)!;
+  const dirty = g.keys.some(([k]) => (draft[k] ?? '') !== (st.settings[k] ?? ''));
+
   const save = async () => {
-    try { await api.put('/api/settings', settings); st.toast('Settings saved', 'ok'); st.load?.(); window.location.reload(); }
-    catch (e: any) { st.toast(e.message, 'bad'); }
-  };
-  const download = async (kind: 'backup' | 'full-export') => {
-    setBusy(kind);
+    const changes: Record<string, string> = {};
+    for (const [k] of g.keys) if ((draft[k] ?? '') !== (st.settings[k] ?? '')) changes[k] = draft[k] ?? '';
+    if (!Object.keys(changes).length) return;
     try {
-      const blob = await api.get<Blob>(`/api/system/${kind}?device_id=${deviceId}`);
-      const url = URL.createObjectURL(blob as any); const a = document.createElement('a');
-      a.href = url; a.download = `kirana-${kind}-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);
-      st.toast(`${kind} downloaded`, 'ok');
+      await api.put('/api/settings', changes);
+      await st.refreshSettings();          // settings take effect immediately (spec #71)
+      setSaved(true); setTimeout(() => setSaved(false), 1800);
+      st.toast(`Saved: ${Object.keys(changes).join(', ')}`, 'ok');
     } catch (e: any) { st.toast(e.message, 'bad'); }
-    setBusy('');
   };
-  const restore = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    if (!confirm('Restoring will REPLACE all current data on this device with the backup. Continue?')) return;
-    setBusy('restore');
-    try {
-      const text = await file.text();
-      const r = await api.post<any>('/api/system/restore', JSON.parse(text), { 'X-Confirm-Restore': 'yes' });
-      st.toast(`Restored ${r.restored ?? 'all'} records — reloading`, 'ok'); setTimeout(() => location.reload(), 800);
-    } catch (err: any) { st.toast(err.message, 'bad'); }
-    setBusy('');
-  };
-  const wipe = async () => {
-    if (!confirm('DANGER: This deletes ALL sales, purchases, khata, products and settings on this device. Products/suppliers/customers are archived to an export first. Are you sure?')) return;
-    if (!confirm('Really sure? This cannot be undone.')) return;
-    setBusy('wipe');
-    try { await api.post('/api/system/reset-data', {}, { 'X-Confirm-Reset': 'yes' }); st.toast('All transactional data cleared', 'ok'); setTimeout(() => location.reload(), 800); }
-    catch (e: any) { st.toast(e.message, 'bad'); }
-    setBusy('');
-  };
-  const s = (k: string, d = '') => settings[k] ?? st.settings[k] ?? d;
-  return <div style={{ maxWidth: 760 }}>
-    <h2 style={{ marginTop: 0 }}>Settings</h2>
-    <div className="card">
-      <h3>Shop</h3>
-      <div className="row" style={{ gap: 10 }}>
-        <div style={{ flex: 2 }}><label>Shop name</label><input value={s('shop.name')} onChange={set('shop.name')} /></div>
-        <div style={{ flex: 1 }}><label>Currency symbol</label><input value={s('currency.symbol', 'Rs')} onChange={set('currency.symbol')} /></div>
-      </div>
-      <div className="row" style={{ gap: 10 }}>
-        <div style={{ flex: 1 }}><label>Phone</label><input value={s('shop.phone')} onChange={set('shop.phone')} /></div>
-        <div style={{ flex: 2 }}><label>Address</label><input value={s('shop.address')} onChange={set('shop.address')} /></div>
-      </div>
+
+  return <div>
+    <div className="row spread" style={{ marginBottom: 12 }}>
+      <h2 style={{ margin: 0 }}>⚙️ Settings — Owner Control Center</h2>
+      {saved && <span className="badge ok">Saved ✔</span>}
     </div>
-    <div className="card">
-      <h3>WhatsApp templates {'{customer}, {amount}, {balance}, {due_date}, {shop}'}</h3>
-      <label>Sale receipt</label><input value={s('wa.tpl.sale')} onChange={set('wa.tpl.sale')} />
-      <label>Dasti reminder</label><input value={s('wa.tpl.dasti_reminder')} onChange={set('wa.tpl.dasti_reminder')} />
-      <label>Khata balance reminder</label><input value={s('wa.tpl.khata_reminder')} onChange={set('wa.tpl.khata_reminder')} />
-      <label>Supplier order received</label><input value={s('wa.tpl.order_received')} onChange={set('wa.tpl.order_received')} />
+    <p className="muted" style={{ fontSize: 13 }}>Every setting here is enforced by the backend: currency formatting, POS behavior,
+      Dasti availability, receipt content, approval thresholds, reference formats and more.</p>
+    <div className="row" style={{ flexWrap: 'wrap', marginBottom: 12 }}>
+      {GROUPS.map(x => <button key={x.name} className={group === x.name ? 'primary' : ''}
+        onClick={() => setGroup(x.name)}>{x.icon} {x.name}</button>)}
     </div>
-    <div className="row spread"><p className="muted">Changes apply after saving.</p><button className="primary" onClick={save}>Save settings</button></div>
-    <div className="card">
-      <h3>Data safety (spec #45)</h3>
-      <p className="muted">Backups are full JSON snapshots stored locally; “full export” is a human-readable dump for spreadsheets. Restore replaces everything on this device.</p>
-      <div className="row">
-        <button disabled={!!busy} onClick={() => download('backup')}>{busy === 'backup' ? '…' : '⬇ Download backup'}</button>
-        <button disabled={!!busy} onClick={() => download('full-export')}>{busy === 'full-export' ? '…' : '⬇ Full export'}</button>
-        <label className="buttonlike" disabled={!!busy}>⬆ Restore from backup<input type="file" accept=".json" hidden onChange={restore} disabled={!!busy} /></label>
-        <span style={{ flex: 1 }} />
-        <button className="danger" disabled={!!busy} onClick={wipe}>{busy === 'wipe' ? '…' : 'Reset all data'}</button>
+    <div className="card" style={{ maxWidth: 640 }}>
+      <h3 style={{ marginTop: 0 }}>{g.icon} {g.name}</h3>
+      {g.keys.map(([k, label]) => (
+        <Field key={k} label={`${label}  ·  ${k}`}>
+          <input value={draft[k] ?? ''} onChange={e => setDraft(p => ({ ...p, [k]: e.target.value }))} />
+        </Field>))}
+      <div className="row" style={{ justifyContent: 'flex-end' }}>
+        <button className="primary" disabled={!dirty} onClick={save}>Save {g.name} settings</button>
       </div>
     </div>
   </div>;

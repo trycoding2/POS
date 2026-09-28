@@ -2,13 +2,22 @@
 __pycache__/
 *.pyc
 
-# Environment / Secrets
+# Environment
 .env
 .env.local
-*.env.*
-
-# Database files (local dev artifacts)
-*.db
-
-# Frontend Dependencies
+# Node
 node_modules/
+dist/
+
+# Tauri build artifacts
+frontend/src-tauri/target/
+
+# Runtime data
+data/
+*.db
+*.db-journal
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

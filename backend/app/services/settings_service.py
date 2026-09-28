@@ -83,6 +83,7 @@ DEFAULTS = {
     "notify.daily_owner_report": "false",
     # sync/backup
     "sync.enabled": "false",
+    "backup.auto_local": "false",
     "backup.auto_enabled": "true",
     "backup.auto_interval_hours": "24",
     "backup.keep_count": "14",

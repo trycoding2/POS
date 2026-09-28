@@ -1,6 +1,6 @@
 // Khata dashboard (spec #17): receivables KPIs + per-customer receive payment.
 import React, { useEffect, useState } from 'react';
-import { api, Customer } from '../api/client';
+import { api, type Customer } from '../api/client';
 import { useStore } from '../store';
 import { Kpi, Modal, Field, useDebounced } from '../components/ui';
 

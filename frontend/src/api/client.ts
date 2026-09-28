@@ -79,10 +79,12 @@ export interface Customer {
   id: number; name: string; phone?: string; alt_phone?: string; address?: string;
   notes?: string; credit_limit?: Money; is_khata: boolean; whatsapp_enabled?: boolean;
   is_active: boolean; balance?: Money | null; outstanding?: Money;
+  opening_balance?: Money; created_at?: string;
 }
 export interface Supplier {
   id: number; name: string; company?: string; phone?: string; address?: string;
   contact_person?: string; payment_terms?: string; notes?: string; is_active: boolean;
+  is_temporary?: boolean; payable?: number | null;
   balance?: Money | null;
 }
 export interface Dasti {
@@ -96,10 +98,14 @@ export interface AuditRow {
   new?: string | null; reason?: string | null; related?: string | null; amount?: Money | null;
 }
 export interface Purchase {
-  id: number; ref: string; supplier_id?: number | null; invoice_no?: string;
+  id: number; uuid?: string; ref: string; supplier_id?: number | null; invoice_no?: string;
   subtotal: Money; discount_total: Money; grand_total: Money; paid_amount: Money;
   due_amount: Money; status: string; created_at?: string; notes?: string;
-  items: { id: number; product_id: number; qty_received: number; qty_ordered: number; qty_free: number; unit_cost: Money; line_total: Money }[];
+  items: { id: number; product_id: number; qty_received: number; qty_ordered: number; qty_free: number; cost_price: Money; discount?: Money; line_total: Money; batch_no?: string }[];
+}
+export interface OrderOut {
+  id: number; ref: string; supplier_id: number; status: string; created_at?: string; notes?: string;
+  items: { id: number; product_id: number; qty_ordered: number; qty_received: number; remaining: number; expected_cost: Money }[];
 }
 
 // Currency formatting driven by live settings (spec #39/#71 — never hardcoded).

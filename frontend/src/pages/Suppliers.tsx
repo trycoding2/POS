@@ -1,6 +1,6 @@
 // Suppliers (spec #18/#19): list, profile with ledger/timeline, temp-seller conversion.
 import React, { useState } from 'react';
-import { api, Supplier } from '../api/client';
+import { api, type Supplier } from '../api/client';
 import { useStore } from '../store';
 import { Modal, Field, StatusBadge, useDebounced } from '../components/ui';
 

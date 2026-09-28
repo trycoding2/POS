@@ -1,6 +1,6 @@
 // Customers module (spec #16): list/filters, create/edit, profile with ledger + timeline.
 import React, { useState } from 'react';
-import { api, Customer } from '../api/client';
+import { api, type Customer } from '../api/client';
 import { useStore } from '../store';
 import { Modal, Field, StatusBadge, useDebounced } from '../components/ui';
 

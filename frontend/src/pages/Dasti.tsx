@@ -1,6 +1,6 @@
 // Dasti - temporary short-term credit (spec #15). Separate from long-term Khata.
 import React, { useEffect, useState } from 'react';
-import { api, Dasti as D } from '../api/client';
+import { api, type Dasti as D } from '../api/client';
 import { useStore } from '../store';
 import { Modal, Field, StatusBadge, useConfirm } from '../components/ui';
 

@@ -75,6 +75,7 @@ export default function App() {
 function Shell({ items }: { items: NavItem[] }) {
   const st = useStore();
   const navigate = useNavigate();
+  const user = st.user;   // non-null here (App gates on auth), local copy for TS narrowing
   return (
     <div className="layout">
       <aside className="sidebar">
@@ -85,8 +86,8 @@ function Shell({ items }: { items: NavItem[] }) {
           ))}
         </nav>
         <div style={{ padding: 12, borderTop: '1px solid var(--line)' }}>
-          <div className="muted" style={{ fontSize: 13 }}>{st.user.full_name || st.user.username}
-            <br /><span className="badge">{st.user.role}</span></div>
+          <div className="muted" style={{ fontSize: 13 }}>{user?.full_name || user?.username}
+            <br /><span className="badge">{user?.role}</span></div>
           <button style={{ width: '100%', marginTop: 8 }} onClick={async () => { await st.logout(); }}>Sign out</button>
         </div>
       </aside>
@@ -130,7 +131,7 @@ function Shell({ items }: { items: NavItem[] }) {
   );
 }
 
-function NoMatch({ navigate }: { navigate: (p: string) => void }) {
+function NoMatch({ navigate }: { navigate: (p: string, o?: { replace?: boolean }) => void }) {
   React.useEffect(() => { navigate('/', { replace: true }); }, [navigate]);
   return null;
 }

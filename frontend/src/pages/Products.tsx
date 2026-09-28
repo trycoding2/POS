@@ -1,6 +1,6 @@
 // Products & catalog management (spec #22/#40): CRUD, live search, price history via timeline.
 import React, { useEffect, useState } from 'react';
-import { api, Product } from '../api/client';
+import { api, type Product } from '../api/client';
 import { useStore } from '../store';
 import { Modal, Field, StatusBadge, useDebounced, useConfirm } from '../components/ui';
 
@@ -12,6 +12,7 @@ export default function Products() {
   const [rows, setRows] = useState<Product[]>([]);
   const [meta, setMeta] = useState<Meta | null>(null);
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
+  const [adjustTarget, setAdjustTarget] = useState<Product | null>(null);
   const [detail, setDetail] = useState<{ product: Product; timeline: any[]; price_history: any[] } | null>(null);
   const [tab, setTab] = useState<'products' | 'catalog'>('products');
   const [confirm, confirmNode] = useConfirm();
@@ -36,10 +37,12 @@ export default function Products() {
     catch (e: any) { st.toast(e.message, 'bad'); }
   };
 
+  const openAdjust = (p: Product) => setAdjustTarget(p);
+
   const openDetail = async (p: Product) => {
     try {
-      const tl = await api.get<any[]>(`/api/products/${p.id}/timeline`);
-      setDetail({ product: p, timeline: tl.filter(x => x.type !== 'price'), price_history: tl.filter(x => x.type === 'price') });
+      const tl = await api.get<{ movements: any[]; price_history: any[]; traceability: any }>(`/api/products/${p.id}/timeline`);
+      setDetail({ product: p, timeline: tl.movements || [], price_history: tl.price_history || [] });
     } catch (e: any) { st.toast(e.message, 'bad'); }
   };
 
@@ -104,22 +107,16 @@ export default function Products() {
             {detail.timeline.length === 0 && <tr><td colSpan={5} className="muted">No movements yet.</td></tr>}</tbody></table>
       </Modal>}
       {confirmNode}
-      <AdjustModal />
+      {adjustTarget && <AdjustModal product={adjustTarget} onClose={() => setAdjustTarget(null)} />}
     </div>
   );
-
-  // adjust-stock modal state kept simple via a portal-less pattern below
-  function openAdjust(p: Product) { setAdjustTarget(p); }
 }
 
 function Kv({ label, v }: { label: string; v: string }) {
   return <div className="card kpi"><div className="v" style={{ fontSize: 18 }}>{v}</div><div className="l">{label}</div></div>;
 }
 
-let _setAdjustTarget: (p: Product | null) => void = () => {};
-function AdjustModal() {
-  const [target, setTarget] = React.useState<Product | null>(null);
-  _setAdjustTarget = setTarget;
+function AdjustModal({ product: target, onClose }: { product: Product; onClose: () => void }) {
   const st = useStore();
   const [qty, setQty] = useState('');
   const [reason, setReason] = useState('Manual adjustment');
@@ -127,15 +124,15 @@ function AdjustModal() {
   const submit = async () => {
     try {
       await api.post(`/api/products/${target.id}/adjust-stock`, { new_qty: Number(qty), reason });
-      st.toast('Stock adjusted — movement + audit record created', 'ok'); setTarget(null);
+      st.toast('Stock adjusted — movement + audit record created', 'ok'); onClose();
     } catch (e: any) { st.toast(e.message, 'bad'); }
   };
-  return <Modal title={`Adjust stock — ${target.name}`} onClose={() => setTarget(null)} width={380}>
+  return <Modal title={`Adjust stock — ${target.name}`} onClose={onClose} width={380}>
     <p className="muted">Current: {target.stock_qty}. Enter the new physical count; the difference is recorded as an audited movement (spec #23).</p>
     <Field label="New quantity"><input type="number" autoFocus value={qty} onChange={e => setQty(e.target.value)} /></Field>
     <Field label="Reason"><input value={reason} onChange={e => setReason(e.target.value)} /></Field>
     <div className="row" style={{ justifyContent: 'flex-end' }}>
-      <button onClick={() => setTarget(null)}>Cancel</button>
+      <button onClick={onClose}>Cancel</button>
       <button className="primary" disabled={!qty} onClick={submit}>Save adjustment</button>
     </div>
   </Modal>;
