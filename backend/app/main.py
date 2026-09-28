@@ -7,10 +7,12 @@ import csv
 import io
 import json
 import os
+import sys
 import threading
 import uuid as _uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -1535,3 +1537,31 @@ async def import_customers(file: UploadFile,
     from app.services import io_import_export as io_svc
     content = (await file.read()).decode("utf-8-sig", errors="replace")
     return io_svc.import_customers_csv(db, content, user=user, device_id=user._device_id)
+
+
+# ------------------------------------------------------ static frontend --
+# When the built React app is present, serve it from the same origin so
+# users only need ONE process. Search order (first hit wins):
+#   1. bundled inside a frozen PyInstaller EXE  (_MEIPASS/dist)
+#   2. backend/dist/frontend                    (populated by build_windows.bat)
+#   3. ../frontend/dist                         (dev layout)
+_DIST_CANDIDATES = [
+    Path(getattr(sys, "_MEIPASS", "")) / "dist" if hasattr(sys, "_MEIPASS") else None,
+    Path(__file__).resolve().parent.parent / "dist" / "frontend",
+    Path(__file__).resolve().parent.parent.parent / "frontend" / "dist",
+]
+_dist = next((p for p in _DIST_CANDIDATES if p and p.is_dir() and (p / "index.html").exists()), None)
+if _dist:
+    from fastapi.staticfiles import StaticFiles
+
+    if (_dist / "assets").is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_dist / "assets")), name="spa-assets")
+
+    @app.get("/{full_path:path}")
+    def _spa_fallback(full_path: str):
+        # Real files (favicon, icons) are served directly; everything else
+        # falls through to the React router (SPA deep links like /pos).
+        f = _dist / full_path
+        if full_path and f.is_file():
+            return FileResponse(f)
+        return FileResponse(_dist / "index.html")

@@ -1,23 +1,12 @@
-# Python
+# Python compiled files and cache
 __pycache__/
 *.pyc
 
-# Environment
-.env
-.env.local
-# Node
-node_modules/
+# Database artifacts (SQLite WAL/SHM)
+*.db-shm
+*.db-wal
+
+# Build artifacts
+build/
 dist/
-
-# Tauri build artifacts
-frontend/src-tauri/target/
-
-# Runtime data
-data/
-*.db
-*.db-journal
-*.log
-
-# OS
-.DS_Store
-Thumbs.db
+*.spec
